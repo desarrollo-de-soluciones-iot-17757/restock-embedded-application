@@ -1,5 +1,5 @@
 /**
- * @file main.cpp
+ * @file sketch.ino
  * @brief Entry point for the Restock Embedded Application.
  *
  * @details
