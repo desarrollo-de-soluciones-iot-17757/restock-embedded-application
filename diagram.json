@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "author": "Anonymous maker",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-breadboard", "id": "bb1", "top": -147, "left": -102.8, "attrs": {} },
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 134.4, "left": 148.84, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "dht1", "top": 384.3, "left": 81, "attrs": {} },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell1",
+      "top": 175.4,
+      "left": -151,
+      "attrs": { "type": "5kg" }
+    },
+    { "type": "wokwi-lcd1602", "id": "lcd1", "top": 147.43, "left": 323.2, "attrs": {} },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell2",
+      "top": 367.4,
+      "left": -160.6,
+      "attrs": { "type": "5kg" }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell3",
+      "top": 549.8,
+      "left": -141.4,
+      "attrs": { "type": "5kg" }
+    },
+    {
+      "type": "wokwi-hx711",
+      "id": "cell4",
+      "top": 703.4,
+      "left": -151,
+      "attrs": { "type": "5kg" }
+    }
+  ],
+  "connections": [ [ "esp:TX", "$serialMonitor:RX", "", [] ], [ "esp:RX", "$serialMonitor:TX", "", [] ] ],
+  "dependencies": {}
+}
