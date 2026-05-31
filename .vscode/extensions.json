@@ -1,9 +1,0 @@
-{
-    "recommendations": [
-        "platformio.platformio-ide",
-        "Wokwi.wokwi-vscode"
-    ],
-    "unwantedRecommendations": [
-        "ms-vscode.cpptools-extension-pack"
-    ]
-}
