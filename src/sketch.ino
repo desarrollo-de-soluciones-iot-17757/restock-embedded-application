@@ -3,63 +3,43 @@
  * @brief Entry point for the Restock Embedded Application.
  *
  * @details
- * This file initializes the base embedded application for the Restock
- * smart inventory scale device. The current version is part of the initial
- * setup and validates that the PlatformIO project, ESP32 runtime and device
- * lifecycle are working correctly.
+ * Initializes the Restock smart inventory scale device.
  *
- * In this initial setup, the Arduino `loop()` function delegates execution to
- * `SmartInventoryScaleDevice::update()` only as a temporary mechanism to verify
- * recurrent behavior during development.
- *
- * In the final ModestIoT-oriented implementation, `loop()` should remain empty
- * or act only as a minimal event dispatcher. Business behavior should be
- * triggered by events generated from sensors, timers, interrupts or
- * communication callbacks, following the event-driven style of the framework.
+ * This sketch follows the event-driven style promoted by the ModestIoT
+ * Nano-framework. The Arduino loop does not contain polling logic. In the
+ * environmental telemetry flow, EnvironmentSensor acts as the event source:
+ * it encapsulates environmental monitoring and emits events only when a
+ * significant change in temperature or humidity is detected.
  *
  * @author Gabriela Shapiama
  * @date May 31, 2026
- * @version 0.1
+ * @version 0.2
  */
 
 #include <Arduino.h>
 #include "SmartInventoryScaleDevice.h"
 
-/**
- * @brief Global instance of the Restock smart inventory scale device.
- *
- * This object represents the physical embedded device responsible for
- * coordinating inventory sensing, environmental monitoring and telemetry
- * delivery in future iterations.
- */
-SmartInventoryScaleDevice device;
+SmartInventoryScaleDevice device; ///< Main Restock smart inventory scale device.
 
 /**
- * @brief Initializes the ESP32 runtime and the Restock embedded device.
- *
- * This function is executed once when the microcontroller starts. It initializes
- * serial communication and delegates device-specific initialization to the
- * SmartInventoryScaleDevice instance.
+ * @brief Initializes the embedded application.
  */
 void setup() {
     Serial.begin(115200);
     delay(500);
 
     device.begin();
+
+    Serial.println("EnvironmentSensor change detection enabled");
 }
 
 /**
- * @brief Executes temporary recurrent behavior for the initial setup.
+ * @brief Keeps the Arduino loop free of business logic.
  *
- * @note This use of `loop()` is temporary. It exists only to validate the
- * initial lifecycle of the device while the event-driven components are still
- * being integrated.
- *
- * In the final ModestIoT-based version, this function should remain empty or
- * contain only minimal event dispatching. Sensor readings, telemetry sending
- * and device reactions should be triggered through events, timers or callbacks
- * instead of placing business logic directly inside `loop()`.
+ * @details
+ * No polling is needed. EnvironmentSensor emits change events and the device
+ * reacts through the ModestIoT event-driven flow.
  */
 void loop() {
-    device.update();
-}
+    // No polling needed; EnvironmentSensor and framework handle behavior.
+} 
