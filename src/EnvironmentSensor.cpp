@@ -14,8 +14,8 @@
  * significant environmental change is detected.
  *
  * @author Gabriela Shapiama
- * @date May 31, 2026
- * @version 0.1
+ * @date Jun 1, 2026
+ * @version 0.2
  */
 
 #include "EnvironmentSensor.h"
@@ -26,6 +26,9 @@ const Event EnvironmentSensor::ENVIRONMENT_CHANGE_DETECTED_EVENT =
 
 const Event EnvironmentSensor::ENVIRONMENT_READING_FAILED_EVENT =
     Event(ENVIRONMENT_READING_FAILED_EVENT_ID);
+
+const Event EnvironmentSensor::ENVIRONMENT_INITIAL_READING_TAKEN_EVENT =
+    Event(ENVIRONMENT_INITIAL_READING_TAKEN_EVENT_ID);
 
 /**
  * @brief Constructs an EnvironmentSensor instance.
@@ -126,11 +129,12 @@ void EnvironmentSensor::checkForChange() {
         hasStableReading = true;
 
         Serial.printf(
-            "Environment baseline registered: %.2f C, %.2f %%\n",
+            "Initial environment reading taken: %.2f C, %.2f %%\n",
             temperature,
             humidity
         );
 
+        on(ENVIRONMENT_INITIAL_READING_TAKEN_EVENT);
         return;
     }
 

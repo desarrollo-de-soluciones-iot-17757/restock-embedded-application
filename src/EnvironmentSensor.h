@@ -14,8 +14,8 @@
  * event only when it detects a significant change in temperature or humidity.
  *
  * @author Gabriela Shapiama
- * @date May 31, 2026
- * @version 0.1
+ * @date Jun 1, 2026
+ * @version 0.2
  */
 
 #include <Arduino.h>
@@ -49,9 +49,11 @@ private:
 public:
     static const int ENVIRONMENT_CHANGE_DETECTED_EVENT_ID = 2001;
     static const int ENVIRONMENT_READING_FAILED_EVENT_ID = 2002;
+    static const int ENVIRONMENT_INITIAL_READING_TAKEN_EVENT_ID = 2003;
 
     static const Event ENVIRONMENT_CHANGE_DETECTED_EVENT;
     static const Event ENVIRONMENT_READING_FAILED_EVENT;
+    static const Event ENVIRONMENT_INITIAL_READING_TAKEN_EVENT;
 
     EnvironmentSensor(
         int pin,

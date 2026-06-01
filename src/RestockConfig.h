@@ -37,16 +37,18 @@
  * @brief Minimum temperature variation required to emit an environmental event.
  *
  * @details
- * This value is a device-side tolerance used to avoid emitting events caused by
+ * This value is expressed in degrees Celsius (°C).
+ * It is a device-side tolerance used to avoid emitting events caused by
  * sensor noise. It is not a business threshold for product safety.
  */
 #define SENSOR_TEMPERATURE_CHANGE_TOLERANCE_C 0.5f
 
 /**
- * @brief Minimum humidity variation required to emit an environmental event.
+ * @brief Minimum relative humidity variation required to emit an environmental event.
  *
  * @details
- * This value is a device-side tolerance used to avoid emitting events caused by
+ * This value is expressed in percentage points of relative humidity (%RH).
+ * It is a device-side tolerance used to avoid emitting events caused by
  * sensor noise. It is not a business threshold for product safety.
  */
 #define SENSOR_HUMIDITY_CHANGE_TOLERANCE_RH 2.0f

@@ -18,8 +18,8 @@
  * Service.
  *
  * @author Gabriela Shapiama
- * @date May 31, 2026
- * @version 0.2
+ * @date Jun 1, 2026
+ * @version 0.3
  */
 
 #include "SmartInventoryScaleDevice.h"
@@ -67,7 +67,9 @@ void SmartInventoryScaleDevice::begin() {
  * @param event Event received by the device.
  */
 void SmartInventoryScaleDevice::on(Event event) {
-    if (event == EnvironmentSensor::ENVIRONMENT_CHANGE_DETECTED_EVENT) {
+    if (event == EnvironmentSensor::ENVIRONMENT_INITIAL_READING_TAKEN_EVENT ||
+        event == EnvironmentSensor::ENVIRONMENT_CHANGE_DETECTED_EVENT) {
+        
         display.setEnvironmentValues(
             environmentSensor.getTemperature(),
             environmentSensor.getHumidity()
