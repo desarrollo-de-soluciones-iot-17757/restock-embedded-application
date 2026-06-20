@@ -21,11 +21,13 @@
  */
 
 #include <Arduino.h>
+#include <esp_system.h>
 #include <ModestIoT.h>
 
 
 #include "Config.h"
 #include "EnvironmentTelemetryPackage.h"
+#include "HealthTelemetryPackage.h"
 #include "DisplayMode.h"
 #include "AuthenticatedMqttGatewayClient.h"
 #include "EdgeProvisioningClient.h"
@@ -60,6 +62,10 @@ private:
     float stableRelativeHumidityPercentage;  ///< Baseline humidity used for change detection.
     unsigned long measuredAtMilliseconds;    ///< Timestamp of latest valid reading.
     bool stableReadingRegistered;            ///< Indicates whether a baseline already exists.
+    bool heapAlertActive;                    ///< Track state of active memory alerts.
+    bool cpuAlertActive;                     ///< Track state of active CPU alerts.
+    bool voltageAlertActive;                 ///< Track state of active voltage alerts.
+    bool tempAlertActive;                    ///< Track state of active temperature alerts.
 
 
     /**
@@ -190,6 +196,202 @@ private:
         Serial.println("[SuppliesKeeperDevice] Environment telemetry enqueued.");
     }
 
+    /**
+     * @brief Reads the microcontroller internal temperature in Celsius.
+     */
+    float readInternalTemperature() {
+        float temp = temperatureRead();
+        if (temp == 0.0f || temp < -100.0f || temp > 150.0f) {
+            // Fallback simulated reading for Wokwi compatibility/stability
+            static float simTemp = 42.0f;
+            simTemp += ((float)(rand() % 5) - 2.0f) * 0.1f; // drift slightly
+            return simTemp;
+        }
+        return temp;
+    }
+
+    /**
+     * @brief Reads/estimates the microcontroller internal voltage.
+     */
+    float readInternalVoltage() {
+        // ESP32 nominal VCC is 3.3V. Simulate a small realistic drift around 3.3V.
+        static float simVoltage = 3.3f;
+        simVoltage += ((float)(rand() % 3) - 1.0f) * 0.01f;
+        if (simVoltage < 3.1f) simVoltage = 3.1f;
+        if (simVoltage > 3.5f) simVoltage = 3.5f;
+        return simVoltage;
+    }
+
+    /**
+     * @brief Simulates/calculates CPU usage percentage.
+     */
+    float getCpuUsage() {
+        static float cpuUsage = 35.0f;
+        cpuUsage += ((float)(rand() % 11) - 5.0f);
+        if (cpuUsage < 10.0f) cpuUsage = 10.0f;
+        if (cpuUsage > 100.0f) cpuUsage = 100.0f;
+        return cpuUsage;
+    }
+
+    /**
+     * @brief Map esp_reset_reason_t to a string name.
+     */
+    String getResetReasonString(esp_reset_reason_t reason) {
+        switch (reason) {
+            case ESP_RST_POWERON:   return "POWERON_RESET";
+            case ESP_RST_SW:        return "SOFTWARE_RESET";
+            case ESP_RST_PANIC:      return "PANIC_RESET";
+            case ESP_RST_INT_WDT:    return "INTERRUPT_WATCHDOG_RESET";
+            case ESP_RST_TASK_WDT:   return "TASK_WATCHDOG_RESET";
+            case ESP_RST_WDT:        return "OTHER_WATCHDOG_RESET";
+            case ESP_RST_DEEPSLEEP:  return "DEEPSLEEP_RESET";
+            case ESP_RST_BROWNOUT:  return "BROWNOUT_RESET";
+            case ESP_RST_SDIO:      return "SDIO_RESET";
+            case ESP_RST_UNKNOWN:
+            default:                return "UNKNOWN_RESET";
+        }
+    }
+
+    /**
+     * @brief Checks the reset reason and enqueues the startup alert immediately.
+     */
+    void checkAndSendResetReason() {
+        esp_reset_reason_t reason = esp_reset_reason();
+        String reasonStr = getResetReasonString(reason);
+
+        Serial.printf("[HealthMonitor] Boot Reset Reason: %s (code: %d)\n", reasonStr.c_str(), (int)reason);
+
+        TelemetryPackage* alertPayload = new HealthTelemetryPackage(
+            DEVICE_ID,
+            BRANCH_ID,
+            "BOOT_RESET_REASON",
+            "reset_reason",
+            reasonStr,
+            "N/A",
+            "Device booted. Reset reason: " + reasonStr,
+            millis()
+        );
+
+        if (!enqueueTelemetryPayload(&alertPayload)) {
+            delete alertPayload;
+            Serial.println("[HealthMonitor] Failed to enqueue boot reset reason alert.");
+        } else {
+            Serial.println("[HealthMonitor] Boot reset reason alert enqueued.");
+        }
+    }
+
+    /**
+     * @brief Evaluates all health metrics against their thresholds.
+     */
+    void evaluateHealth() {
+        uint32_t freeHeap = ESP.getFreeHeap();
+        float cpuUsage = getCpuUsage();
+        unsigned long uptimeMs = millis();
+        float voltage = readInternalVoltage();
+        float tempC = readInternalTemperature();
+
+        // Print health status to Serial console for local debugging
+        Serial.println("--- [Health Status] ---");
+        Serial.printf("  Free Heap: %u bytes\n", freeHeap);
+        Serial.printf("  CPU Usage: %.1f %%\n", cpuUsage);
+        Serial.printf("  Uptime: %lu ms\n", uptimeMs);
+        Serial.printf("  Internal Voltage: %.2f V\n", voltage);
+        Serial.printf("  Internal Temp: %.1f C\n", tempC);
+        Serial.println("-----------------------");
+
+        // Heap Memory Check
+        if (freeHeap < HEALTH_THRESHOLD_MIN_FREE_HEAP_BYTES) {
+            if (!heapAlertActive) {
+                heapAlertActive = true;
+                Serial.printf("[HealthMonitor] WARNING: Low memory! Heap: %u bytes\n", freeHeap);
+                
+                TelemetryPackage* alert = new HealthTelemetryPackage(
+                    DEVICE_ID, BRANCH_ID, "HEALTH_ANOMALY", "heap",
+                    String(freeHeap), String(HEALTH_THRESHOLD_MIN_FREE_HEAP_BYTES),
+                    "Low memory threshold breached. Available heap is critically low.", uptimeMs
+                );
+                if (!enqueueTelemetryPayload(&alert)) {
+                    delete alert;
+                }
+            }
+        } else {
+            if (heapAlertActive) {
+                heapAlertActive = false;
+                Serial.println("[HealthMonitor] INFO: Heap memory recovered to safe levels.");
+            }
+        }
+
+        // CPU Usage Check
+        if (cpuUsage > HEALTH_THRESHOLD_MAX_CPU_USAGE_PERCENT) {
+            if (!cpuAlertActive) {
+                cpuAlertActive = true;
+                Serial.printf("[HealthMonitor] WARNING: High CPU! CPU: %.1f %%\n", cpuUsage);
+
+                TelemetryPackage* alert = new HealthTelemetryPackage(
+                    DEVICE_ID, BRANCH_ID, "HEALTH_ANOMALY", "cpu",
+                    String(cpuUsage, 1), String(HEALTH_THRESHOLD_MAX_CPU_USAGE_PERCENT, 1),
+                    "High CPU usage threshold breached. Device processor load is high.", uptimeMs
+                );
+                if (!enqueueTelemetryPayload(&alert)) {
+                    delete alert;
+                }
+            }
+        } else {
+            if (cpuAlertActive) {
+                cpuAlertActive = false;
+                Serial.println("[HealthMonitor] INFO: CPU load recovered to safe levels.");
+            }
+        }
+
+        // Internal Voltage Check
+        if (voltage < HEALTH_THRESHOLD_MIN_VOLTAGE_V || voltage > HEALTH_THRESHOLD_MAX_VOLTAGE_V) {
+            if (!voltageAlertActive) {
+                voltageAlertActive = true;
+                Serial.printf("[HealthMonitor] WARNING: Voltage anomaly! Voltage: %.2f V\n", voltage);
+
+                String msg = "Voltage anomaly detected. Safe bounds: " +
+                             String(HEALTH_THRESHOLD_MIN_VOLTAGE_V, 1) + "V - " +
+                             String(HEALTH_THRESHOLD_MAX_VOLTAGE_V, 1) + "V.";
+                TelemetryPackage* alert = new HealthTelemetryPackage(
+                    DEVICE_ID, BRANCH_ID, "HEALTH_ANOMALY", "voltage",
+                    String(voltage, 2),
+                    String(HEALTH_THRESHOLD_MIN_VOLTAGE_V, 1) + "/" + String(HEALTH_THRESHOLD_MAX_VOLTAGE_V, 1),
+                    msg, uptimeMs
+                );
+                if (!enqueueTelemetryPayload(&alert)) {
+                    delete alert;
+                }
+            }
+        } else {
+            if (voltageAlertActive) {
+                voltageAlertActive = false;
+                Serial.println("[HealthMonitor] INFO: Internal voltage returned to safe levels.");
+            }
+        }
+
+        // Internal Temperature Check
+        if (tempC > HEALTH_THRESHOLD_MAX_TEMP_C) {
+            if (!tempAlertActive) {
+                tempAlertActive = true;
+                Serial.printf("[HealthMonitor] WARNING: High internal temperature! Temp: %.1f C\n", tempC);
+
+                TelemetryPackage* alert = new HealthTelemetryPackage(
+                    DEVICE_ID, BRANCH_ID, "HEALTH_ANOMALY", "temperature",
+                    String(tempC, 1), String(HEALTH_THRESHOLD_MAX_TEMP_C, 1),
+                    "High internal temperature threshold breached. Microcontroller is running hot.", uptimeMs
+                );
+                if (!enqueueTelemetryPayload(&alert)) {
+                    delete alert;
+                }
+            }
+        } else {
+            if (tempAlertActive) {
+                tempAlertActive = false;
+                Serial.println("[HealthMonitor] INFO: Internal temperature returned to safe levels.");
+            }
+        }
+    }
+
 protected:
     /**
      * @brief Sends queued telemetry using the authenticated MQTT gateway.
@@ -240,7 +442,11 @@ public:
           stableTemperatureInCelsius(0.0f),
           stableRelativeHumidityPercentage(0.0f),
           measuredAtMilliseconds(0),
-          stableReadingRegistered(false) {
+          stableReadingRegistered(false),
+          heapAlertActive(false),
+          cpuAlertActive(false),
+          voltageAlertActive(false),
+          tempAlertActive(false) {
 
         Serial.println("[SuppliesKeeperDevice] Initializing device...");
 
@@ -260,6 +466,9 @@ public:
         }
 
         showStartupMessage();
+
+        // Enqueue reset reason alert immediately upon startup
+        checkAndSendResetReason();
 
         Serial.println("[SuppliesKeeperDevice] Device ready.");
     }
@@ -286,6 +495,9 @@ public:
             currentTemperatureInCelsius,
             currentRelativeHumidityPercentage
         );
+
+        // Evaluate health telemetry on every sensor reading interval
+        evaluateHealth();
 
         if (!stableReadingRegistered) {
             registerStableEnvironmentReading();

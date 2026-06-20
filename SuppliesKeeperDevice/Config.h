@@ -220,4 +220,13 @@ static const uint8_t TELEMETRY_QUEUE_LENGTH = 8;
  */
 static const uint16_t MQTT_PAYLOAD_BUFFER_SIZE = 512;
 
+/**
+ * @brief Health monitoring thresholds.
+ */
+static const uint32_t HEALTH_THRESHOLD_MIN_FREE_HEAP_BYTES = 50000UL;
+static const float HEALTH_THRESHOLD_MAX_CPU_USAGE_PERCENT = 85.0f;
+static const float HEALTH_THRESHOLD_MIN_VOLTAGE_V = 3.0f;
+static const float HEALTH_THRESHOLD_MAX_VOLTAGE_V = 3.6f;
+static const float HEALTH_THRESHOLD_MAX_TEMP_C = 80.0f;
+
 #endif // CONFIG_H
