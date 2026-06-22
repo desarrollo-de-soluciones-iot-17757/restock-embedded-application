@@ -1,0 +1,18 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# JetBrains / CLion
+.idea/
+cmake-build-*/
+
+# Arduino build output
+build/
+*.bin
+*.elf
+*.map
+*.hex
+
+# Temporary files
+*.tmp
+*.log
