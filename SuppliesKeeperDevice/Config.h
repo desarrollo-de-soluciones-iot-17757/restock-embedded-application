@@ -141,7 +141,7 @@ static const char* const MQTT_TELEMETRY_TOPIC_FALLBACK =
 /**
  * @brief Default display mode if Edge does not return one.
  */
-static const char* const DISPLAY_MODE_FALLBACK = "environment";
+static const char* const DISPLAY_MODE_FALLBACK = "weight";
 
 /**
  * @brief Default product unit label if Edge does not return one.
@@ -169,7 +169,7 @@ static const int ENVIRONMENT_SENSOR_PIN = 15;
  * This controls how often the DHT sensor is asked to measure data. Telemetry
  * is still sent reactively only when the Device detects a significant change.
  */
-static const unsigned long ENVIRONMENT_MONITORING_INTERVAL_MS = 5000UL;
+static const unsigned long DEVICE_SAMPLING_INTERVAL_MS = 5000UL;
 
 /**
  * @brief Minimum temperature variation required to enqueue telemetry.
@@ -189,6 +189,79 @@ static const float SENSOR_HUMIDITY_CHANGE_TOLERANCE_RH = 2.0f;
  * is still used as the baseline.
  */
 static const bool SEND_INITIAL_ENVIRONMENT_READING_TO_EDGE = false;
+
+
+/**
+ * @brief GPIO pin connected to the HX711 data line for the front-left load cell.
+ *
+ * @details
+ * Current prototype uses only this 5 kg load cell. Future versions may add
+ * three additional load cells following the same ModestIoT pattern.
+ */
+static const int FRONT_LEFT_LOAD_CELL_DATA_PIN = 4;
+
+/**
+ * @brief GPIO pin connected to the HX711 clock line for the front-left load cell.
+ */
+static const int FRONT_LEFT_LOAD_CELL_CLOCK_PIN = 2;
+
+/**
+ * @brief Minimum supported weight for one load cell mapping.
+ */
+static const float LOAD_CELL_MINIMUM_WEIGHT_IN_GRAMS = 0.0f;
+
+/**
+ * @brief Maximum supported weight for one 5 kg load cell.
+ *
+ * @details
+ * This is the maximum weight of one physical cell, not the total maximum
+ * of the complete scale. If four 5 kg cells are used independently, each
+ * LoadCellAmplifier still uses 5000 g, and the total scale capacity becomes
+ * 20000 g after summing all readings.
+ */
+static const float LOAD_CELL_MAXIMUM_WEIGHT_IN_GRAMS = 5000.0f;
+
+/**
+ * @brief Raw HX711 value mapped to the minimum weight.
+ *
+ * @details
+ * For real hardware, this value should be adjusted through calibration.
+ */
+static const long LOAD_CELL_MINIMUM_RAW_VALUE = 0;
+
+/**
+ * @brief Raw HX711 value mapped to the maximum weight.
+ *
+ * @details
+ * This value is acceptable for Wokwi/demo behavior. Real hardware should
+ * be calibrated using a known weight.
+ */
+static const long LOAD_CELL_MAXIMUM_RAW_VALUE = 21000;
+
+/**
+ * @brief Moving average depth used by the framework load cell adapter.
+ */
+static const int LOAD_CELL_FILTER_DEPTH = 3;
+
+/**
+ * @brief Minimum weight variation required to send telemetry to Edge.
+ *
+ * @details
+ * The framework detects physical changes. This threshold represents the
+ * Restock rule for a meaningful inventory variation.
+ */
+static const float WEIGHT_CHANGE_TOLERANCE_IN_GRAMS = 50.0f;
+
+/**
+ * @brief Indicates whether the first valid weight reading should be sent.
+ *
+ * @details
+ * Set to false to keep the same reactive behavior as the environment sensor:
+ * the first reading only initializes the baseline.
+ */
+static const bool SEND_INITIAL_WEIGHT_READING_TO_EDGE = false;
+
+
 
 /**
  * @brief I2C address of the LCD1602 display.
