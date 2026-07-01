@@ -32,6 +32,22 @@
 #include "AuthenticatedMqttGatewayClient.h"
 #include "EdgeProvisioningClient.h"
 
+//Temporal class for missing method in WiFiConnectivityDriver of the framework
+class RestockWiFiConnectivityDriver : public WiFiConnectivityDriver {
+public:
+    RestockWiFiConnectivityDriver(const char* ssid, const char* password)
+        : WiFiConnectivityDriver(ssid, password) {
+    }
+
+    bool transmit(const char* target, const char* data) override {
+        (void) target;
+        (void) data;
+
+        return canTransmit();
+    }
+};
+
+
 // --- 1. EVENT-DRIVEN APPLICATION MEDIATOR ---
 
 /**
@@ -398,7 +414,7 @@ protected:
      *
      * @param rawQueueItemPayload Telemetry payload received from the framework queue.
      */
-    void processQueuedTelemetryData(const TelemetryPackage* rawQueueItemPayload) override {
+    void processQueuedTelemetryData(const TelemetryPackage* rawQueueItemPayload) const override {
         if (rawQueueItemPayload == nullptr) {
             return;
         }
@@ -628,7 +644,7 @@ void setup() {
     Serial.println("[System Boot] Restock Embedded Application");
     Serial.println("[System Boot] SuppliesKeeperDevice starting...");
 
-    wifiConnectivityDriver = new WiFiConnectivityDriver(WIFI_SSID, WIFI_PASSWORD);
+    wifiConnectivityDriver = new RestockWiFiConnectivityDriver(WIFI_SSID, WIFI_PASSWORD);
 
     bool networkReady = waitForNetworkConnection(
         *wifiConnectivityDriver,
