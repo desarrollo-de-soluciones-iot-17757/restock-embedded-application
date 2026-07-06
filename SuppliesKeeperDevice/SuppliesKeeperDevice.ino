@@ -452,7 +452,21 @@ private:
      * @return Current total weight in grams.
      */
     float calculateTotalWeightInGrams() const {
-        return frontLeftLoadCell.getWeightInGrams();
+        float weight = frontLeftLoadCell.getWeightInGrams();
+    
+        if (fabsf(weight) <= LOAD_CELL_ZERO_DEADBAND_GRAMS) {
+            return 0.0f;
+        }
+    
+        if (weight < 0.0f) {
+            return 0.0f;
+        }
+    
+        if (weight > LOAD_CELL_MAXIMUM_WEIGHT_IN_GRAMS) {
+            return LOAD_CELL_MAXIMUM_WEIGHT_IN_GRAMS;
+        }
+    
+        return weight;
     }
 
     /**
@@ -503,6 +517,11 @@ private:
      * The scale should be empty when this method is executed.
      */
     void calibrateWeightSensor() {
+        Serial.println("[WeightSensor] Stabilizing load cell. Keep the scale empty.");
+        renderDisplayLines("Weight sensor", "Stabilizing...");
+
+        delay(LOAD_CELL_STARTUP_STABILIZATION_MS);
+
         Serial.println("[WeightSensor] Taring load cell. Keep the scale empty.");
         renderDisplayLines("Weight sensor", "Taring...");
 
