@@ -4,26 +4,26 @@
  *
  * @details
  * This sketch defines the SuppliesKeeperDevice, a reactive ESP32-based device
- * that reads temperature and humidity from a DHT22 sensor, displays the latest
- * environmental values on a 16x2 I2C LCD, and sends telemetry to the Restock
- * Edge Service only when a significant environmental change is detected.
+ * that reads temperature, humidity and weight, displays the latest values on a
+ * 16x2 I2C LCD, and sends telemetry to the Restock Edge Service only when a
+ * significant data change is detected.
  *
  * The implementation uses the Modest-IoT Nano Framework components:
  * - DhtSensor for temperature and humidity acquisition.
+ * - LoadCellAmplifier for weight acquisition through HX711.
  * - CharacterLcdDisplay for LCD output.
  * - WiFiConnectivityDriver for WiFi provisioning.
  * - AuthenticatedMqttGatewayClient for MQTT telemetry delivery.
  * - TelemetryPackage for JSON payload serialization.
  *
  * @author Gabriela Shapiama
- * @date Jun 15, 2026
- * @version 0.4
+ * @date Jul 01, 2026
+ * @version 0.5
  */
 
 #include <Arduino.h>
 #include <esp_system.h>
 #include <ModestIoT.h>
-
 
 #include "Config.h"
 #include "EnvironmentTelemetryPackage.h"
@@ -31,6 +31,48 @@
 #include "DisplayMode.h"
 #include "AuthenticatedMqttGatewayClient.h"
 #include "EdgeProvisioningClient.h"
+#include "WeightTelemetryPackage.h"
+
+/**
+ * @brief Temporary WiFi driver adapter for the current framework version.
+ *
+ * @details
+ * The current WiFiConnectivityDriver implementation does not implement the
+ * abstract transmit method required by ConnectivityDriver. This adapter keeps
+ * the original WiFi behavior and only fulfills that missing contract without
+ * modifying the framework files.
+ */
+class RestockWiFiConnectivityDriver : public WiFiConnectivityDriver {
+public:
+    /**
+     * @brief Creates the Restock WiFi connectivity adapter.
+     *
+     * @param ssid Wireless network identifier.
+     * @param password Wireless network password.
+     */
+    RestockWiFiConnectivityDriver(const char* ssid, const char* password)
+        : WiFiConnectivityDriver(ssid, password) {
+    }
+
+    /**
+     * @brief Fulfills the ConnectivityDriver transmit contract.
+     *
+     * @details
+     * Restock telemetry is sent through AuthenticatedMqttGatewayClient, while
+     * Edge provisioning uses HTTPClient directly. This method only reports
+     * whether the WiFi transport is ready.
+     *
+     * @param target Ignored target endpoint.
+     * @param data Ignored payload data.
+     * @return true when the WiFi transport can transmit, otherwise false.
+     */
+    bool transmit(const char* target, const char* data) override {
+        (void) target;
+        (void) data;
+
+        return canTransmit();
+    }
+};
 
 // --- 1. EVENT-DRIVEN APPLICATION MEDIATOR ---
 
@@ -40,33 +82,40 @@
  * @details
  * Coordinates framework components:
  * - DhtSensor for temperature and humidity.
+ * - LoadCellAmplifier for weight readings.
  * - CharacterLcdDisplay for local visualization.
  * - AuthenticatedMqttGatewayClient for authenticated MQTT publishing.
  *
- * The device decides whether a DHT reading represents a significant change.
+ * The device decides whether a sensor reading represents a significant change.
  * Sensors only read values; business/device-side tolerance is handled here.
  */
 class SuppliesKeeperDevice : public Device {
 private:
     DhtSensor environmentSensor;                         ///< DHT22 sensor adapter from ModestIoT.
+    LoadCellAmplifier frontLeftLoadCell;                 ///< HX711 load cell adapter from ModestIoT.
     CharacterLcdDisplay statusDisplay;                   ///< I2C LCD actuator from ModestIoT.
-    AuthenticatedMqttGatewayClient& gatewayClient;///< Authenticated MQTT telemetry gateway.
+    AuthenticatedMqttGatewayClient& gatewayClient;       ///< Authenticated MQTT telemetry gateway.
 
-    DisplayMode displayMode;              ///< Display mode returned by Edge provisioning.
+    DisplayMode displayMode;             ///< Display mode returned by Edge provisioning.
     String productUnitLabel;             ///< Product/inventory unit label returned by Edge provisioning.
     float convertedProductQuantity;      ///< Product quantity already converted by Edge for display.
 
-    float currentTemperatureInCelsius;       ///< Latest temperature reading.
-    float currentRelativeHumidityPercentage; ///< Latest humidity reading.
-    float stableTemperatureInCelsius;        ///< Baseline temperature used for change detection.
-    float stableRelativeHumidityPercentage;  ///< Baseline humidity used for change detection.
-    unsigned long measuredAtMilliseconds;    ///< Timestamp of latest valid reading.
-    bool stableReadingRegistered;            ///< Indicates whether a baseline already exists.
-    bool heapAlertActive;                    ///< Track state of active memory alerts.
-    bool cpuAlertActive;                     ///< Track state of active CPU alerts.
-    bool voltageAlertActive;                 ///< Track state of active voltage alerts.
-    bool tempAlertActive;                    ///< Track state of active temperature alerts.
+    float currentTemperatureInCelsius;          ///< Latest temperature reading.
+    float currentRelativeHumidityInPercentage;  ///< Latest humidity reading.
+    float stableTemperatureInCelsius;           ///< Baseline temperature used for change detection.
+    float stableRelativeHumidityInPercentage;   ///< Baseline humidity used for change detection.
+    unsigned long environmentMeasuredAtMilliseconds; ///< Timestamp of latest environment reading.
+    bool stableEnvironmentReadingRegistered;    ///< Indicates whether an environment baseline already exists.
 
+    bool heapAlertActive;     ///< Track state of active memory alerts.
+    bool cpuAlertActive;      ///< Track state of active CPU alerts.
+    bool voltageAlertActive;  ///< Track state of active voltage alerts.
+    bool tempAlertActive;     ///< Track state of active temperature alerts.
+
+    float currentTotalWeightInGrams;              ///< Latest total weight reading in grams.
+    float stableTotalWeightInGrams;               ///< Baseline total weight used for change detection.
+    unsigned long weightMeasuredAtMilliseconds;   ///< Timestamp of latest weight reading.
+    bool stableWeightReadingRegistered;           ///< Indicates whether a weight baseline already exists.
 
     /**
      * @brief Shows a two-line message on the LCD.
@@ -113,12 +162,12 @@ private:
 
             case DISPLAY_MODE_HUMIDITY:
                 snprintf(firstLine, sizeof(firstLine), "Humidity:");
-                snprintf(secondLine, sizeof(secondLine), "%.1f %%RH", currentRelativeHumidityPercentage);
+                snprintf(secondLine, sizeof(secondLine), "%.1f %%RH", currentRelativeHumidityInPercentage);
                 break;
 
             case DISPLAY_MODE_WEIGHT:
-                snprintf(firstLine, sizeof(firstLine), "Weight: N/A");
-                snprintf(secondLine, sizeof(secondLine), "Temp: %.1f C", currentTemperatureInCelsius);
+                snprintf(firstLine, sizeof(firstLine), "Weight:");
+                snprintf(secondLine, sizeof(secondLine), "%.0f g", currentTotalWeightInGrams);
                 break;
 
             case DISPLAY_MODE_CONVERTED_UNITS:
@@ -134,14 +183,14 @@ private:
                     sizeof(secondLine),
                     "T%.1fC H%.0f%%",
                     currentTemperatureInCelsius,
-                    currentRelativeHumidityPercentage
+                    currentRelativeHumidityInPercentage
                 );
                 break;
 
             case DISPLAY_MODE_ENVIRONMENT:
             default:
                 snprintf(firstLine, sizeof(firstLine), "Temp: %.1f C", currentTemperatureInCelsius);
-                snprintf(secondLine, sizeof(secondLine), "Hum:  %.1f %%", currentRelativeHumidityPercentage);
+                snprintf(secondLine, sizeof(secondLine), "Hum:  %.1f %%", currentRelativeHumidityInPercentage);
                 break;
         }
 
@@ -159,7 +208,7 @@ private:
         );
 
         float humidityDifference = fabsf(
-            currentRelativeHumidityPercentage - stableRelativeHumidityPercentage
+            currentRelativeHumidityInPercentage - stableRelativeHumidityInPercentage
         );
 
         return temperatureDifference >= SENSOR_TEMPERATURE_CHANGE_TOLERANCE_C ||
@@ -171,8 +220,8 @@ private:
      */
     void registerStableEnvironmentReading() {
         stableTemperatureInCelsius = currentTemperatureInCelsius;
-        stableRelativeHumidityPercentage = currentRelativeHumidityPercentage;
-        stableReadingRegistered = true;
+        stableRelativeHumidityInPercentage = currentRelativeHumidityInPercentage;
+        stableEnvironmentReadingRegistered = true;
     }
 
     /**
@@ -183,8 +232,8 @@ private:
             DEVICE_ID,
             BRANCH_ID,
             currentTemperatureInCelsius,
-            currentRelativeHumidityPercentage,
-            measuredAtMilliseconds
+            currentRelativeHumidityInPercentage,
+            environmentMeasuredAtMilliseconds
         );
 
         if (!enqueueTelemetryPayload(&telemetryPayload)) {
@@ -304,7 +353,7 @@ private:
             if (!heapAlertActive) {
                 heapAlertActive = true;
                 Serial.printf("[HealthMonitor] WARNING: Low memory! Heap: %u bytes\n", freeHeap);
-                
+
                 TelemetryPackage* alert = new HealthTelemetryPackage(
                     DEVICE_ID, BRANCH_ID, "HEALTH_ANOMALY", "heap",
                     String(freeHeap), String(HEALTH_THRESHOLD_MIN_FREE_HEAP_BYTES),
@@ -392,13 +441,134 @@ private:
         }
     }
 
+    /**
+     * @brief Calculates the current total weight from active load cells.
+     *
+     * @details
+     * Current prototype uses one 5 kg load cell. Future versions can add
+     * front-right, rear-left and rear-right readings here while keeping the
+     * rest of the weight change detection logic unchanged.
+     *
+     * @return Current total weight in grams.
+     */
+    float calculateTotalWeightInGrams() const {
+        return frontLeftLoadCell.getWeightInGrams();
+    }
+
+    /**
+     * @brief Determines whether current weight changed significantly.
+     *
+     * @return true when the configured weight tolerance was exceeded.
+     */
+    bool hasSignificantWeightChange() const {
+        return fabsf(currentTotalWeightInGrams - stableTotalWeightInGrams) >=
+               WEIGHT_CHANGE_TOLERANCE_IN_GRAMS;
+    }
+
+    /**
+     * @brief Registers the current weight as the stable comparison baseline.
+     */
+    void registerStableWeightReading() {
+        stableTotalWeightInGrams = currentTotalWeightInGrams;
+        stableWeightReadingRegistered = true;
+    }
+
+    /**
+     * @brief Creates and enqueues the weight telemetry payload.
+     */
+    void enqueueWeightTelemetry() {
+        TelemetryPackage* telemetryPayload = new WeightTelemetryPackage(
+            DEVICE_ID,
+            BRANCH_ID,
+            currentTotalWeightInGrams,
+            weightMeasuredAtMilliseconds
+        );
+
+        if (!enqueueTelemetryPayload(&telemetryPayload)) {
+            delete telemetryPayload;
+            Serial.println("[SuppliesKeeperDevice] Weight telemetry queue full. Payload discarded.");
+            return;
+        }
+
+        Serial.printf(
+            "[SuppliesKeeperDevice] Weight telemetry enqueued: %.2f g\n",
+            currentTotalWeightInGrams
+        );
+    }
+
+    /**
+     * @brief Tares the load cell and prepares the initial weight baseline.
+     *
+     * @details
+     * The scale should be empty when this method is executed.
+     */
+    void calibrateWeightSensor() {
+        Serial.println("[WeightSensor] Taring load cell. Keep the scale empty.");
+        renderDisplayLines("Weight sensor", "Taring...");
+
+        frontLeftLoadCell.tare();
+
+        currentTotalWeightInGrams = 0.0f;
+        stableTotalWeightInGrams = 0.0f;
+        weightMeasuredAtMilliseconds = millis();
+        stableWeightReadingRegistered = false;
+
+        Serial.println("[WeightSensor] Tare completed.");
+    }
+
+    /**
+     * @brief Handles weight readings emitted by the framework load cell adapter.
+     *
+     * @details
+     * The framework generates a data-read event when the load cell reading changes.
+     * This method applies the Restock significant-change rule before sending
+     * telemetry to Edge.
+     */
+    void handleWeightDataReadEvent() {
+        currentTotalWeightInGrams = calculateTotalWeightInGrams();
+        weightMeasuredAtMilliseconds = millis();
+
+        Serial.printf(
+            "[WeightSensor] Reading: %.2f g\n",
+            currentTotalWeightInGrams
+        );
+
+        updateConfiguredDisplay();
+
+        if (!stableWeightReadingRegistered) {
+            registerStableWeightReading();
+
+            Serial.println("[WeightSensor] Initial weight baseline registered.");
+
+            if (SEND_INITIAL_WEIGHT_READING_TO_EDGE) {
+                enqueueWeightTelemetry();
+            }
+
+            return;
+        }
+
+        if (!hasSignificantWeightChange()) {
+            Serial.println("[WeightSensor] Change below tolerance. Telemetry skipped.");
+            return;
+        }
+
+        Serial.printf(
+            "[WeightSensor] Significant change detected. Previous: %.2f g | Current: %.2f g\n",
+            stableTotalWeightInGrams,
+            currentTotalWeightInGrams
+        );
+
+        registerStableWeightReading();
+        enqueueWeightTelemetry();
+    }
+
 protected:
     /**
      * @brief Sends queued telemetry using the authenticated MQTT gateway.
      *
      * @param rawQueueItemPayload Telemetry payload received from the framework queue.
      */
-    void processQueuedTelemetryData(const TelemetryPackage* rawQueueItemPayload) override {
+    void processQueuedTelemetryData(const TelemetryPackage* rawQueueItemPayload) const override {
         if (rawQueueItemPayload == nullptr) {
             return;
         }
@@ -432,33 +602,56 @@ public:
     )
         : Device(samplingIntervalInMilliseconds, timerChannel),
           environmentSensor(ENVIRONMENT_SENSOR_PIN, DHT22, this),
+          frontLeftLoadCell(
+              FRONT_LEFT_LOAD_CELL_DATA_PIN,
+              FRONT_LEFT_LOAD_CELL_CLOCK_PIN,
+              LOAD_CELL_MINIMUM_WEIGHT_IN_GRAMS,
+              LOAD_CELL_MAXIMUM_WEIGHT_IN_GRAMS,
+              LOAD_CELL_MINIMUM_RAW_VALUE,
+              LOAD_CELL_MAXIMUM_RAW_VALUE,
+              LOAD_CELL_FILTER_DEPTH,
+              this
+          ),
           statusDisplay(LCD_I2C_ADDRESS, LCD_COLUMNS, LCD_ROWS, true, this),
           gatewayClient(gatewayClient),
           displayMode(displayMode),
           productUnitLabel(productUnitLabel),
           convertedProductQuantity(convertedProductQuantity),
           currentTemperatureInCelsius(0.0f),
-          currentRelativeHumidityPercentage(0.0f),
+          currentRelativeHumidityInPercentage(0.0f),
           stableTemperatureInCelsius(0.0f),
-          stableRelativeHumidityPercentage(0.0f),
-          measuredAtMilliseconds(0),
-          stableReadingRegistered(false),
+          stableRelativeHumidityInPercentage(0.0f),
+          environmentMeasuredAtMilliseconds(0),
+          stableEnvironmentReadingRegistered(false),
           heapAlertActive(false),
           cpuAlertActive(false),
           voltageAlertActive(false),
-          tempAlertActive(false) {
+          tempAlertActive(false),
+          currentTotalWeightInGrams(0.0f),
+          stableTotalWeightInGrams(0.0f),
+          weightMeasuredAtMilliseconds(0),
+          stableWeightReadingRegistered(false) {
 
         Serial.println("[SuppliesKeeperDevice] Initializing device...");
 
         initializeAsynchronousEngine(TELEMETRY_QUEUE_LENGTH);
 
-        bool schedulerRegistered = appendSensorToScheduler(
+        bool environmentSchedulerRegistered = appendSensorToScheduler(
             &environmentSensor,
             Sensor::MEASURE_DATA_REQUESTED_EVENT_IDENTIFIER
         );
 
-        if (!schedulerRegistered) {
+        if (!environmentSchedulerRegistered) {
             Serial.println("[SuppliesKeeperDevice] Failed to register DHT sensor in scheduler.");
+        }
+
+        bool weightSchedulerRegistered = appendSensorToScheduler(
+            &frontLeftLoadCell,
+            Sensor::MEASURE_DATA_REQUESTED_EVENT_IDENTIFIER
+        );
+
+        if (!weightSchedulerRegistered) {
+            Serial.println("[SuppliesKeeperDevice] Failed to register load cell in scheduler.");
         }
 
         if (!statusDisplay.isBacklightOn()) {
@@ -466,6 +659,8 @@ public:
         }
 
         showStartupMessage();
+
+        calibrateWeightSensor();
 
         // Enqueue reset reason alert immediately upon startup
         checkAndSendResetReason();
@@ -479,27 +674,31 @@ public:
      * @param event Event emitted by a component.
      */
     void on(Event event) override {
-        if (event.identifier != DhtSensor::DATA_READ_EVENT_IDENTIFIER) {
+        if (event.identifier != Sensor::DATA_READ_EVENT_IDENTIFIER) {
             Serial.printf("[SuppliesKeeperDevice] Unhandled event identifier: %d\n", event.identifier);
             return;
         }
 
+        if (event.sourceId == FRONT_LEFT_LOAD_CELL_DATA_PIN) {
+            handleWeightDataReadEvent();
+            return;
+        }
+
         currentTemperatureInCelsius = environmentSensor.getTemperatureInCelsius();
-        currentRelativeHumidityPercentage = environmentSensor.getRelativeHumidityInPercentage();
-        measuredAtMilliseconds = millis();
+        currentRelativeHumidityInPercentage = environmentSensor.getRelativeHumidityInPercentage();
+        environmentMeasuredAtMilliseconds = millis();
 
         updateConfiguredDisplay();
 
         Serial.printf(
             "[SuppliesKeeperDevice] DHT reading: %.2f C, %.2f %%RH\n",
             currentTemperatureInCelsius,
-            currentRelativeHumidityPercentage
+            currentRelativeHumidityInPercentage
         );
 
-        // Evaluate health telemetry on every sensor reading interval
         evaluateHealth();
 
-        if (!stableReadingRegistered) {
+        if (!stableEnvironmentReadingRegistered) {
             registerStableEnvironmentReading();
 
             Serial.println("[SuppliesKeeperDevice] Initial environment baseline registered.");
@@ -628,7 +827,7 @@ void setup() {
     Serial.println("[System Boot] Restock Embedded Application");
     Serial.println("[System Boot] SuppliesKeeperDevice starting...");
 
-    wifiConnectivityDriver = new WiFiConnectivityDriver(WIFI_SSID, WIFI_PASSWORD);
+    wifiConnectivityDriver = new RestockWiFiConnectivityDriver(WIFI_SSID, WIFI_PASSWORD);
 
     bool networkReady = waitForNetworkConnection(
         *wifiConnectivityDriver,
@@ -707,7 +906,7 @@ void setup() {
         parseDisplayMode(provisioningResult.displayMode),
         provisioningResult.productUnitLabel,
         provisioningResult.convertedQuantity,
-        ENVIRONMENT_MONITORING_INTERVAL_MS,
+        DEVICE_SAMPLING_INTERVAL_MS,
         CORE_TIMER_CHANNEL
     );
 
