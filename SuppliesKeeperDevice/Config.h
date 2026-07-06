@@ -141,7 +141,7 @@ static const char* const MQTT_TELEMETRY_TOPIC_FALLBACK =
 /**
  * @brief Default display mode if Edge does not return one.
  */
-static const char* const DISPLAY_MODE_FALLBACK = "weight";
+static const char* const DISPLAY_MODE_FALLBACK = "environment";
 
 /**
  * @brief Default product unit label if Edge does not return one.
@@ -169,7 +169,7 @@ static const int ENVIRONMENT_SENSOR_PIN = 15;
  * This controls how often the DHT sensor is asked to measure data. Telemetry
  * is still sent reactively only when the Device detects a significant change.
  */
-static const unsigned long DEVICE_SAMPLING_INTERVAL_MS = 5000UL;
+static const unsigned long DEVICE_SAMPLING_INTERVAL_MS = 2000UL;
 
 /**
  * @brief Minimum temperature variation required to enqueue telemetry.
@@ -203,7 +203,7 @@ static const int FRONT_LEFT_LOAD_CELL_DATA_PIN = 4;
 /**
  * @brief GPIO pin connected to the HX711 clock line for the front-left load cell.
  */
-static const int FRONT_LEFT_LOAD_CELL_CLOCK_PIN = 2;
+static const int FRONT_LEFT_LOAD_CELL_CLOCK_PIN = 5;
 
 /**
  * @brief Minimum supported weight for one load cell mapping.
@@ -236,12 +236,18 @@ static const long LOAD_CELL_MINIMUM_RAW_VALUE = 0;
  * This value is acceptable for Wokwi/demo behavior. Real hardware should
  * be calibrated using a known weight.
  */
-static const long LOAD_CELL_MAXIMUM_RAW_VALUE = 21000;
+static const long LOAD_CELL_MAXIMUM_RAW_VALUE = 2100L; //WOKWI RAW
+//PHYSICAL PROTOTYPE RAW
+//static const long LOAD_CELL_MAXIMUM_RAW_VALUE = 1740000L;
+
+static const long LOAD_CELL_ZERO_DEADBAND_GRAMS = 5.0f;
+static const long LOAD_CELL_STARTUP_STABILIZATION_MS = 10000UL;
+
 
 /**
  * @brief Moving average depth used by the framework load cell adapter.
  */
-static const int LOAD_CELL_FILTER_DEPTH = 3;
+static const int LOAD_CELL_FILTER_DEPTH = 10;
 
 /**
  * @brief Minimum weight variation required to send telemetry to Edge.
