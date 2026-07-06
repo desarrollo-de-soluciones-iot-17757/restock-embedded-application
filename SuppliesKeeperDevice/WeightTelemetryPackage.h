@@ -3,51 +3,54 @@
 
 #pragma once
 
+/**
+ * @file WeightTelemetryPackage.h
+ * @brief MQTT telemetry payload for weight readings sent to Edge.
+ *
+ * @details
+ * Edge currently expects the following JSON contract:
+ * {
+ *   "device_id": "supplies-keeper-001",
+ *   "weight_grams": 500.0,
+ *   "created_at": "2026-08-14T06:19:12Z"
+ * }
+ *
+ * The embedded device sends grams as the raw physical unit. Business conversion
+ * to product units is done by Edge and returned through response topics.
+ *
+ * @author Gabriela Shapiama
+ * @date Jul 06, 2026
+ * @version 0.6
+ */
+
 #include <Arduino.h>
 #include <ModestIoT.h>
 
 /**
  * @brief Telemetry payload for Restock weight readings.
- *
- * @details
- * Serializes significant weight changes using the standard device unit:
- * grams. Business unit conversion is handled by the Edge service.
- *
- * Expected JSON body:
- * {
- *   "device_id": "...",
- *   "branch_id": "...",
- *   "weight_grams": 0.0,
- *   "measured_at_ms": 0
- * }
  */
 class WeightTelemetryPackage : public TelemetryPackage {
 private:
-    const char* deviceId;                  ///< Unique embedded device identifier.
-    const char* branchId;                  ///< Branch/store/restaurant identifier.
-    float weightInGrams;                   ///< Current weight in grams.
-    unsigned long measuredAtMilliseconds;  ///< Reading timestamp from device startup.
+    const char* deviceId;      ///< Unique embedded device identifier.
+    float weightInGrams;      ///< Current measured weight in grams.
+    String createdAt;         ///< UTC timestamp formatted as ISO-8601.
 
 public:
     /**
      * @brief Creates a weight telemetry payload.
      *
      * @param deviceId Unique embedded device identifier.
-     * @param branchId Branch/store/restaurant identifier.
      * @param weightInGrams Current measured weight in grams.
-     * @param measuredAtMilliseconds Reading timestamp in milliseconds.
+     * @param createdAt UTC timestamp formatted as yyyy-MM-ddTHH:mm:ssZ.
      */
     WeightTelemetryPackage(
         const char* deviceId,
-        const char* branchId,
         float weightInGrams,
-        unsigned long measuredAtMilliseconds
+        const String& createdAt
     )
         : deviceId(deviceId),
-          branchId(branchId),
           weightInGrams(weightInGrams),
-          measuredAtMilliseconds(measuredAtMilliseconds) {
-    }
+          createdAt(createdAt) {}
 
     /**
      * @brief Serializes the weight telemetry payload into JSON.
@@ -56,9 +59,8 @@ public:
      */
     void serialize(JsonDocument& serializationDestination) const override {
         serializationDestination["device_id"] = deviceId;
-        serializationDestination["branch_id"] = branchId;
         serializationDestination["weight_grams"] = weightInGrams;
-        serializationDestination["measured_at_ms"] = measuredAtMilliseconds;
+        serializationDestination["created_at"] = createdAt;
     }
 };
 
