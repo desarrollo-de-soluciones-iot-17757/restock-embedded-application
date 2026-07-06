@@ -70,7 +70,6 @@
     [ "cell1:VCC", "bb:bp.5", "red", [] ],
     [ "cell1:GND", "bb:bn.5", "black", [] ],
     [ "cell1:DT", "esp:4", "blue", [] ],
-    [ "cell1:SCK", "esp:2", "gold", [ "h0" ] ],
     [ "esp:0", "bb:14t.a", "", [ "$bb" ] ],
     [ "esp:2", "bb:15t.a", "", [ "$bb" ] ],
     [ "esp:4", "bb:13t.a", "", [ "$bb" ] ],
@@ -108,7 +107,8 @@
     [ "esp:GND.3", "bb:7t.a", "", [ "$bb" ] ],
     [ "esp:D1", "bb:17t.a", "", [ "$bb" ] ],
     [ "esp:D0", "bb:18t.a", "", [ "$bb" ] ],
-    [ "esp:CLK", "bb:19t.a", "", [ "$bb" ] ]
+    [ "esp:CLK", "bb:19t.a", "", [ "$bb" ] ],
+    [ "cell1:SCK", "esp:5", "gold", [ "h566.4", "v210.4" ] ]
   ],
   "dependencies": {}
 }
