@@ -11,7 +11,7 @@
  * Edge currently expects the following JSON contract:
  * {
  *   "device_id": "supplies-keeper-001",
- *   "weight_grams": 500.0,
+ *   "raw_weight": 500.0,
  *   "created_at": "2026-08-14T06:19:12Z"
  * }
  *
@@ -59,7 +59,7 @@ public:
      */
     void serialize(JsonDocument& serializationDestination) const override {
         serializationDestination["device_id"] = deviceId;
-        serializationDestination["weight_grams"] = weightInGrams;
+        serializationDestination["raw_weight"] = weightInGrams;
         serializationDestination["created_at"] = createdAt;
     }
 };
