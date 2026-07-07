@@ -208,7 +208,8 @@ private:
 
             case DISPLAY_MODE_CONVERTED_UNITS: {
                 snprintf(firstLine, sizeof(firstLine), "Current stock");
-                String stockLine = String(convertedProductQuantity, 1) + " " + productUnitLabel;
+                long truncatedQuantity = static_cast<long>(convertedProductQuantity);
+                String stockLine = String(truncatedQuantity) + " " + (truncatedQuantity == 1 ? "unit" : "units");
                 copyLcdLine(secondLine, sizeof(secondLine), stockLine);
                 break;
             }
@@ -623,7 +624,7 @@ private:
             return environmentTelemetryTopic.c_str();
         }
 
-        if (!telemetryDocument["weight_grams"].isNull()) {
+        if (!telemetryDocument["raw_weight"].isNull()) {
             return weightTelemetryTopic.c_str();
         }
 
@@ -757,8 +758,7 @@ public:
      * @details
      * The Edge returns the processed telemetry record through response topics.
      * This method intentionally follows the current Edge response contracts and
-     * only adds the LCD fields agreed for the sprint: display_mode and
-     * product_unit_label.
+     * updates optional LCD fields when Edge includes them.
      *
      * Expected environment response:
      * @code{.json}
@@ -772,8 +772,7 @@ public:
      *   "created_at": "2026-08-14T06:19:12",
      *   "average_temperature": 24.8,
      *   "average_humidity": 59.7,
-     *   "display_mode": "environment",
-     *   "product_unit_label": "units"
+     *   "display_mode": "DISPLAY_MODE_ENVIRONMENT"
      * }
      * @endcode
      *
@@ -786,8 +785,7 @@ public:
      *   "physical_stock": 5.0,
      *   "created_at": "2026-08-14T06:19:12",
      *   "average_physical_stock": 4.8,
-     *   "display_mode": "converted_units",
-     *   "product_unit_label": "units"
+     *   "display_mode": "DISPLAY_MODE_CONVERTED_UNITS"
      * }
      * @endcode
      *
