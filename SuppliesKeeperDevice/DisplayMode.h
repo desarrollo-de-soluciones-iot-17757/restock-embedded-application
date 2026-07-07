@@ -38,19 +38,23 @@ static DisplayMode parseDisplayMode(const String& rawDisplayMode) {
     normalizedMode.trim();
     normalizedMode.toUpperCase();
 
-    if (normalizedMode == "DISPLAY_MODE_ENVIRONMENT") {
+    if (normalizedMode == "DISPLAY_MODE_ENVIRONMENT" || normalizedMode == "ENVIRONMENT") {
+        return DISPLAY_MODE_ENVIRONMENT;
+    }
+
+    if (normalizedMode == "DISPLAY_MODE_TEMPERATURE" || normalizedMode == "TEMPERATURE") {
         return DISPLAY_MODE_TEMPERATURE;
     }
 
-    if (normalizedMode == "DISPLAY_MODE_HUMIDITY") {
+    if (normalizedMode == "DISPLAY_MODE_HUMIDITY" || normalizedMode == "HUMIDITY") {
         return DISPLAY_MODE_HUMIDITY;
     }
 
-    if (normalizedMode == "DISPLAY_MODE_WEIGHT") {
+    if (normalizedMode == "DISPLAY_MODE_WEIGHT" || normalizedMode == "WEIGHT") {
         return DISPLAY_MODE_WEIGHT;
     }
 
-    if (normalizedMode == "DISPLAY_MODE_CONVERTED_UNITS") {
+    if (normalizedMode == "DISPLAY_MODE_CONVERTED_UNITS" || normalizedMode == "CONVERTED_UNITS") {
         return DISPLAY_MODE_CONVERTED_UNITS;
     }
 
