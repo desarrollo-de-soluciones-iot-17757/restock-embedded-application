@@ -67,6 +67,9 @@
     [ "dht1:VCC", "bb:bp.14", "red", [ "v0" ] ],
     [ "lcd2:GND", "bb:bn.16", "black", [ "h-67.2", "v490.4" ] ],
     [ "lcd2:VCC", "bb:bp.17", "red", [ "h-57.6", "v490.5" ] ],
+    [ "cell1:VCC", "bb:bp.5", "red", [] ],
+    [ "cell1:GND", "bb:bn.5", "black", [] ],
+    [ "cell1:DT", "esp:4", "blue", [] ],
     [ "esp:0", "bb:14t.a", "", [ "$bb" ] ],
     [ "esp:2", "bb:15t.a", "", [ "$bb" ] ],
     [ "esp:4", "bb:13t.a", "", [ "$bb" ] ],
@@ -104,7 +107,8 @@
     [ "esp:GND.3", "bb:7t.a", "", [ "$bb" ] ],
     [ "esp:D1", "bb:17t.a", "", [ "$bb" ] ],
     [ "esp:D0", "bb:18t.a", "", [ "$bb" ] ],
-    [ "esp:CLK", "bb:19t.a", "", [ "$bb" ] ]
+    [ "esp:CLK", "bb:19t.a", "", [ "$bb" ] ],
+    [ "cell1:SCK", "esp:5", "gold", [ "h566.4", "v210.4" ] ]
   ],
   "dependencies": {}
 }

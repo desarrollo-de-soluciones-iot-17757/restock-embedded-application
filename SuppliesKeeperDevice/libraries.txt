@@ -6,4 +6,5 @@ PubSubClient
 DHT sensor library
 LiquidCrystal I2C
 ESP32Servo
-Modest-IoT-Nano-Framework@wokwi:62daf647225b408c88122c9dae03ff171e0a2600
+HX711 Arduino Library
+ModestIoT@wokwi:fb939e3848beed149e380d7392ca7967aa440c62

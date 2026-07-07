@@ -4,51 +4,58 @@
 #pragma once
 
 /**
- * @brief Telemetry payload for Restock environmental readings.
+ * @file EnvironmentTelemetryPackage.h
+ * @brief MQTT telemetry payload for environmental readings sent to Edge.
  *
  * @details
- * Preserves the previous telemetry body used by the Restock Embedded App:
- *
+ * Edge currently expects the following JSON contract:
  * {
- *   "device_id": "...",
- *   "branch_id": "...",
- *   "temperature": 0.0,
- *   "humidity": 0.0,
- *   "measured_at_ms": 0
+ *   "device_id": "supplies-keeper-001",
+ *   "temperature": 25.0,
+ *   "humidity": 60.0,
+ *   "created_at": "2026-08-14T06:19:12Z"
  * }
  *
- * The implementation now uses the ModestIoT TelemetryPackage abstraction.
+ * The package intentionally does not include branch_id or measured_at_ms because
+ * the current Edge contract provided for the embedded task does not require them.
+ *
+ * @author Gabriela Shapiama
+ * @date Jul 06, 2026
+ * @version 0.6
+ */
+
+#include <Arduino.h>
+#include <ModestIoT.h>
+
+/**
+ * @brief Telemetry payload for Restock environmental readings.
  */
 class EnvironmentTelemetryPackage : public TelemetryPackage {
 private:
     const char* deviceId;                 ///< Unique identifier of the embedded device.
-    const char* branchId;                 ///< Identifier of the branch/store/restaurant.
     float temperatureInCelsius;           ///< Temperature reading in Celsius.
     float relativeHumidityPercentage;     ///< Relative humidity percentage.
-    unsigned long measuredAtMilliseconds; ///< Reading timestamp from device startup.
+    String createdAt;                     ///< UTC timestamp formatted as ISO-8601.
 
 public:
     /**
      * @brief Creates an environmental telemetry payload.
      *
      * @param deviceId Unique embedded device identifier.
-     * @param branchId Branch or store identifier.
      * @param temperatureInCelsius Temperature in Celsius.
      * @param relativeHumidityPercentage Relative humidity percentage.
-     * @param measuredAtMilliseconds Reading timestamp in milliseconds.
+     * @param createdAt UTC timestamp formatted as yyyy-MM-ddTHH:mm:ssZ.
      */
     EnvironmentTelemetryPackage(
         const char* deviceId,
-        const char* branchId,
         float temperatureInCelsius,
         float relativeHumidityPercentage,
-        unsigned long measuredAtMilliseconds
+        const String& createdAt
     )
         : deviceId(deviceId),
-          branchId(branchId),
           temperatureInCelsius(temperatureInCelsius),
           relativeHumidityPercentage(relativeHumidityPercentage),
-          measuredAtMilliseconds(measuredAtMilliseconds) {}
+          createdAt(createdAt) {}
 
     /**
      * @brief Serializes the telemetry payload into a JSON document.
@@ -57,12 +64,10 @@ public:
      */
     void serialize(JsonDocument& serializationDestination) const override {
         serializationDestination["device_id"] = deviceId;
-        serializationDestination["branch_id"] = branchId;
         serializationDestination["temperature"] = temperatureInCelsius;
         serializationDestination["humidity"] = relativeHumidityPercentage;
-        serializationDestination["measured_at_ms"] = measuredAtMilliseconds;
+        serializationDestination["created_at"] = createdAt;
     }
 };
 
-
-#endif //ENVIRONMENT_TELEMETRY_PACKAGE_H
+#endif // ENVIRONMENT_TELEMETRY_PACKAGE_H
