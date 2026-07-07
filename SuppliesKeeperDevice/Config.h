@@ -39,10 +39,10 @@ static const char* const BRANCH_ID = "branch-001";
 static const char* const DEVICE_API_KEY = "dev-restock-api-key";
 
 /** @brief WiFi SSID used in Wokwi or local testing. */
-static const char* const WIFI_SSID = "Wokwi-GUEST";
+static const char* const WIFI_SSID = "Gaby";
 
 /** @brief WiFi password used in Wokwi or local testing. */
-static const char* const WIFI_PASSWORD = "";
+static const char* const WIFI_PASSWORD = "evangelion";
 
 /** @brief Maximum time to wait for WiFi connection during setup. */
 static const unsigned long WIFI_CONNECTION_TIMEOUT_MS = 15000UL;
@@ -76,7 +76,7 @@ static const bool ALLOW_DEVELOPMENT_PROVISIONING_FALLBACK = true;
  * @details
  * Replace this value with the IP of the Alpine VM or machine that runs Mosquitto.
  */
-static const char* const MQTT_BROKER_HOST_FALLBACK = "192.168.1.14";
+static const char* const MQTT_BROKER_HOST_FALLBACK = "10.193.31.93";
 
 /**
  * @brief Enables MQTT username/password authentication.
@@ -150,7 +150,7 @@ static const long NTP_GMT_OFFSET_SECONDS = 0L;
 static const int NTP_DAYLIGHT_OFFSET_SECONDS = 0;
 
 /** @brief Default display mode if Edge does not return one. */
-static const char* const DISPLAY_MODE_FALLBACK = "environment";
+static const char* const DISPLAY_MODE_FALLBACK = "CONVERTED_UNITS";
 
 /** @brief Default product unit label if Edge does not return one. */
 static const char* const PRODUCT_UNIT_LABEL_FALLBACK = "units";
@@ -202,9 +202,9 @@ static const long LOAD_CELL_MINIMUM_RAW_VALUE = 0L;
  * the calibrated maximum raw value measured with a known 5 kg reference or with
  * your chosen calibration weight.
  */
-static const long LOAD_CELL_MAXIMUM_RAW_VALUE = 2100L; //WOKWI RAW
+//static const long LOAD_CELL_MAXIMUM_RAW_VALUE = 2100L; //WOKWI RAW
 //PHYSICAL PROTOTYPE RAW
-//static const long LOAD_CELL_MAXIMUM_RAW_VALUE = 1740000L;
+static const long LOAD_CELL_MAXIMUM_RAW_VALUE = 1740000L;
 
 /** @brief Values within this range are treated as zero to reduce HX711 noise. */
 static const float LOAD_CELL_ZERO_DEADBAND_GRAMS = 5.0f;
