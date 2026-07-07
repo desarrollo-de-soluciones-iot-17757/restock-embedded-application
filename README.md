@@ -161,7 +161,9 @@ Después del aprovisionamiento, el dispositivo se conecta al broker MQTT usando 
 El dispositivo publica telemetría en el topic configurado:
 
 ```txt
-restock/edges/edge-001/devices/supplies-keeper-001/telemetry
+stores/supplies-keeper-001/telemetry/environment
+stores/supplies-keeper-001/telemetry/weight
+stores/supplies-keeper-001/health
 ```
 
 El Edge Service se suscribe a ese topic y consume la telemetría generada por el dispositivo embebido.
@@ -171,10 +173,9 @@ Ejemplo de telemetría ambiental:
 ```json
 {
   "device_id": "supplies-keeper-001",
-  "branch_id": "branch-001",
   "temperature": 24,
   "humidity": 66,
-  "measured_at_ms": 27380
+  "created_at": "2026-08-14T06:19:12Z"
 }
 ```
 
@@ -183,11 +184,8 @@ Ejemplo de telemetría de peso:
 ```json
 {
   "device_id": "supplies-keeper-001",
-  "branch_id": "branch-001",
-  "weight_kg": 100,
-  "product_unit_label": "botellas",
-  "converted_quantity": 4,
-  "measured_at_ms": 27380
+  "raw_weight": 500.0,
+  "created_at": "2026-08-14T06:19:12Z"
 }
 ```
 
